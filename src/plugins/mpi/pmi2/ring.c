@@ -162,9 +162,14 @@ int pmix_ring_id_by_rank(int rank)
 /* allocate resources to track PMIX_Ring state */
 int pmix_ring_init()
 {
+	int i;
 	int rc = SLURM_SUCCESS;
 
 	/* assumes job_info is initialized */
+
+	/* this is called by each stepd process, and each stepd has
+	 * at least one application process, so
+	 * pmix_app_children > 0 and pmix_ring_children > 0 */
 
 	/* TODO: read width from env variable? */
 	/* pmix_stepd_width = tree_width; */
@@ -197,6 +202,19 @@ int pmix_ring_init()
 
 	/* allocate a structure to record ring_in message from each child */
 	pmix_ring_msgs = (pmix_ring_msg*) xmalloc(pmix_ring_children * sizeof(pmix_ring_msg));
+	if (pmix_ring_msgs == NULL) {
+		error("mpi/pmi2: failed to allocate ring in messages");
+		/* cancel the step to avoid tasks hang */
+		slurm_kill_job_step(job_info.jobid, job_info.stepid,
+				    SIGKILL);
+	}
+
+	/* initialize messages */
+	for (i = 0; i < pmix_ring_children; i++) {
+        	pmix_ring_msgs[i].count = 0;
+        	pmix_ring_msgs[i].left  = NULL;
+        	pmix_ring_msgs[i].right = NULL;
+        }
 
 	return rc;
 }
