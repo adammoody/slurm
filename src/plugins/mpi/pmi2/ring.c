@@ -118,6 +118,9 @@ static int pmix_stepd_width = 16;
 /* number of stepd children for this proc */
 static int pmix_stepd_children = 0;
 
+/* we allocate a hostlist in init and destroy it in finalize */
+static hostlist_t pmix_stepd_hostlist = NULL;
+
 /* return rank of our parent in stepd tree,
  * returns -1 if we're the root */
 static int pmix_stepd_rank_parent()
@@ -159,6 +162,25 @@ int pmix_ring_id_by_rank(int rank)
 	return ring_id;
 }
 
+/* send message defined by buf and size to given rank stepd */
+static int pmix_stepd_send(const char* buf, uint32_t size, int rank)
+{
+	int rc = SLURM_SUCCESS;
+
+	/* TODO: add retry logic like temp_kvs_send in kvs.c */
+
+	/* map rank to host name */
+	char* host = hostlist_nth(pmix_stepd_hostlist, rank); /* strdup-ed */
+
+	/* send message */
+	rc = tree_msg_to_stepds(host, size, (char*) buf);
+
+	/* free host name */
+	free(host); /* strdup-ed */
+
+	return rc;
+} 
+
 /* allocate resources to track PMIX_Ring state */
 int pmix_ring_init()
 {
@@ -170,6 +192,9 @@ int pmix_ring_init()
 	/* this is called by each stepd process, and each stepd has
 	 * at least one application process, so
 	 * pmix_app_children > 0 and pmix_ring_children > 0 */
+
+	/* allocate hostlist so we can map a stepd rank to a hostname */
+	pmix_stepd_hostlist = hostlist_create(job_info.step_nodelist);
 
 	/* TODO: read width from env variable? */
 	/* pmix_stepd_width = tree_width; */
@@ -246,6 +271,11 @@ int pmix_ring_finalize()
 		pmix_ring_msgs = NULL;
 	}
 
+	/* free host list */
+	if (pmix_stepd_hostlist != NULL) {
+		hostlist_destroy(pmix_stepd_hostlist);
+        }
+
 	return rc;
 }
 
@@ -320,7 +350,6 @@ int pmix_ring_out(int count, char* left, char* right)
 
 	/* send messages to children in stepd tree,
 	 * we do this first to get the message down the tree quickly */
-	hostlist_t hl = hostlist_create(job_info.step_nodelist);
 	for (i = 0; i < pmix_stepd_children; i++) {
 		/* get pointer to message data for this child */
 		int ring_id = pmix_app_children + i;
@@ -335,18 +364,15 @@ int pmix_ring_out(int count, char* left, char* right)
 		packstr(msg->left,            buf); /* send left value */
 		packstr(msg->right,           buf); /* send right value */
 
-		/* send message to child stepd */
+		/* get rank of child stepd and send message */
 		int rank = pmix_stepd_rank_child(i);
-		char* host = hostlist_nth(hl, rank); /* strdup-ed */
-		debug3("mpi/pmi2: rank=%d sending ring_out to rank=%d host=%s count=%d left=%s right=%s\n",
-			pmix_stepd_rank, rank, host, msg->count, msg->left, msg->right);
-		rc = tree_msg_to_stepds(host, (uint32_t) size_buf(buf), get_buf_data(buf));
-		free(host);
+		debug3("mpi/pmi2: rank=%d sending ring_out to rank=%d count=%d left=%s right=%s\n",
+			pmix_stepd_rank, rank, msg->count, msg->left, msg->right);
+		rc = pmix_stepd_send(get_buf_data(buf), (uint32_t) size_buf(buf), rank);
 
 		/* free message */
 		free_buf(buf);
 	}
-	hostlist_destroy(hl);
 
 	/* now send messages to children app procs,
 	 * and set their state back to normal */
@@ -480,15 +506,11 @@ int pmix_ring_in(int ring_id, int count, char* left, char* right)
 			char* bufptr = get_buf_data(buf);
 			uint32_t bufsize = (uint32_t) size_buf(buf);
 
-			/* TODO: add retry logic like temp_kvs_send in kvs.c */
-			hostlist_t hl = hostlist_create(job_info.step_nodelist);
+			/* get rank of parent stepd and send message */
 			int rank = pmix_stepd_rank_parent();
-			char* host = hostlist_nth(hl, rank); /* strdup-ed */
-			debug3("mpi/pmi2: rank=%d sending ring_in to rank=%d host=%s count=%d left=%s right=%s\n",
-				my_rank, rank, host, count, leftmost, rightmost);
-                        rc = tree_msg_to_stepds(host, bufsize, bufptr);
-			free(host);
-			hostlist_destroy(hl);
+			debug3("mpi/pmi2: rank=%d sending ring_in to rank=%d count=%d left=%s right=%s\n",
+				my_rank, rank, count, leftmost, rightmost);
+                        rc = pmix_stepd_send(bufptr, bufsize, rank);
 
 			/* free message */
 			free_buf(buf);
