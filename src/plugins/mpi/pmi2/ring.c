@@ -366,7 +366,7 @@ int pmix_ring_out(int count, char* left, char* right)
 
 		/* get rank of child stepd and send message */
 		int rank = pmix_stepd_rank_child(i);
-		debug3("mpi/pmi2: rank=%d sending ring_out to rank=%d count=%d left=%s right=%s\n",
+		debug3("mpi/pmi2: rank=%d sending RING_OUT to rank=%d count=%d left=%s right=%s\n",
 			pmix_stepd_rank, rank, msg->count, msg->left, msg->right);
 		rc = pmix_stepd_send(get_buf_data(buf), (uint32_t) size_buf(buf), rank);
 
@@ -502,15 +502,11 @@ int pmix_ring_in(int ring_id, int count, char* left, char* right)
 			packstr(leftmost,        buf); /* send left value */
 			packstr(rightmost,       buf); /* send right value */
 
-			/* define locals for start of buffer and its size */
-			char* bufptr = get_buf_data(buf);
-			uint32_t bufsize = (uint32_t) size_buf(buf);
-
 			/* get rank of parent stepd and send message */
 			int rank = pmix_stepd_rank_parent();
-			debug3("mpi/pmi2: rank=%d sending ring_in to rank=%d count=%d left=%s right=%s\n",
+			debug3("mpi/pmi2: rank=%d sending RING_IN to rank=%d count=%d left=%s right=%s\n",
 				my_rank, rank, count, leftmost, rightmost);
-                        rc = pmix_stepd_send(bufptr, bufsize, rank);
+                        rc = pmix_stepd_send(get_buf_data(buf), (uint32_t) size_buf(buf), rank);
 
 			/* free message */
 			free_buf(buf);
