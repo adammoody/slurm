@@ -1,7 +1,42 @@
-/*
- * Implements logic for PMIX_Ring.
- * by Adam Moody <moody20@llnl.gov>
+/*****************************************************************************\
+ **  ring.c - Implements logic for PMIX_Ring
+ *****************************************************************************
+ * Copyright (c) 2015, Lawrence Livermore National Security, LLC.
+ * Produced at the Lawrence Livermore National Laboratory.
+ * Written by Adam Moody <moody20@llnl.gov>.
+ * LLNL-CODE-670614
+ * All rights reserved.
  *
+ * This file is part of SLURM, a resource management program.
+ * For details, see <http://slurm.schedmd.com/>.
+ * Please also read the included file: DISCLAIMER.
+ * 
+ * LLNL Preamble Notice
+ *
+ * A. This notice is required to be provided under our contract with
+ * the U.S. Department of Energy (DOE). This work was produced at the
+ * Lawrence Livermore National Laboratory under Contract No.
+ * DE-AC52-07NA27344 with the DOE.
+ *
+ * B. Neither the United States Government nor Lawrence Livermore
+ * National Security, LLC nor any of their employees, makes any
+ * warranty, express or implied, or assumes any liability or
+ * responsibility for the accuracy, completeness, or usefulness of
+ * any information, apparatus, product, or process disclosed, or
+ * represents that its use would not infringe privately-owned rights.
+ *
+ * C. Also, reference herein to any specific commercial products,
+ * process, or services by trade name, trademark, manufacturer or
+ * otherwise does not necessarily constitute or imply its endorsement,
+ * recommendation, or favoring by the United States Government or
+ * Lawrence Livermore National Security, LLC. The views and opinions
+ * of authors expressed herein do not necessarily state or reflect
+ * those of the United States Government or Lawrence Livermore
+ * National Security, LLC, and shall not be used for advertising or
+ * product endorsement purposes.
+\*****************************************************************************/
+
+/*
  * -----------------------------------------------------------
  * PMIX_Ring - execute ring exchange over processes in group
  *
